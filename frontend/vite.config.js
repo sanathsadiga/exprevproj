@@ -15,10 +15,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+base: '/exprevproj/',
   server: {
     port: 3000,
     proxy: {
-      '/api': {
+      '/exprevproj/api': {
         target: 'http://localhost:5001',
         changeOrigin: true,
       },
