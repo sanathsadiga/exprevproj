@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = `http://76.13.19.45:5006/api`;
+const baseURL = `https://revenue.projectdesigners.cloud/api`;
 
 const api = axios.create({
   baseURL: baseURL,

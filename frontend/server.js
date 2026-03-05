@@ -1,23 +1,36 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = 8000;
 const DIST_PATH = path.join(__dirname, 'dist');
+const INDEX_PATH = path.join(DIST_PATH, 'index.html');
 
-const server = http.createServer((req, res) => {
+const options = {
+key: fs.readFileSync('/etc/letsencrypt/live/revenue.projectdesigners.cloud/privkey.pem'),
+  cert: fs.readFileSync('/etc/letsencrypt/live/revenue.projectdesigners.cloud/fullchain.pem'),
+  minVersion: 'TLSv1.2',
+  ciphers: 'DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK'
+};
+
+const server = https.createServer(options, (req, res) => {
   let filePath = path.join(DIST_PATH, req.url);
   
   if (req.url === '/' || req.url.startsWith('/?')) {
-    filePath = path.join(DIST_PATH, 'index.html');
+    filePath = INDEX_PATH;
   } else if (!path.extname(filePath)) {
-    filePath = path.join(DIST_PATH, 'index.html');
+    filePath = INDEX_PATH;
   }
   
   fs.readFile(filePath, (err, content) => {
     if (err) {
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(fs.readFileSync(path.join(DIST_PATH, 'index.html')));
+      fs.readFile(INDEX_PATH, (err2, indexContent) => {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(indexContent);
+      });
     } else {
       const ext = path.extname(filePath);
       const contentType = {
@@ -38,5 +51,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Secure Server running on port ${PORT}`);
 });

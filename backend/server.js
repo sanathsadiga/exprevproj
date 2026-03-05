@@ -1,3 +1,5 @@
+import https from 'https';
+import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -8,7 +10,14 @@ import locationRoutes from './routes/locationRoutes.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5006;
+
+const options = {
+  key: fs.readFileSync('/etc/ssl/private/server.key'),
+  cert: fs.readFileSync('/etc/ssl/certs/server.crt'),
+  minVersion: 'TLSv1.2',
+  ciphers: 'DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK'
+};
 
 app.use(cors());
 app.use(express.json());
@@ -26,7 +35,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+https.createServer(options, app).listen(PORT, () => {
+  console.log(`Secure server is running on https://localhost:${PORT}`);
   console.log('Environment:', process.env.NODE_ENV || 'development');
 });
