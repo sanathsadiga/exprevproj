@@ -26,6 +26,8 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchData();
     fetchLocations();
+    // When fiscal year changes, switch to yearly view to show all available data
+    setLocationChartType('yearly');
   }, [selectedLocation, selectedFiscalYear]);
 
   const fetchLocations = async () => {
@@ -40,7 +42,8 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const summaryResponse = await dataAPI.getDashboardSummary();
+      const summaryParams = { fiscal_year: selectedFiscalYear };
+      const summaryResponse = await dataAPI.getDashboardSummary(summaryParams);
       setSummary(summaryResponse.data);
 
       const params = { fiscal_year: selectedFiscalYear };
@@ -170,7 +173,12 @@ const AdminDashboard = () => {
             <div className="filter-group">
               <label>Fiscal Year</label>
               <select value={selectedFiscalYear} onChange={(e) => setSelectedFiscalYear(e.target.value)}>
-                <option value={getCurrentFiscalYear()}>{getCurrentFiscalYear()}</option>
+                {Array.from({ length: 5 }, (_, i) => {
+                  const year = new Date().getFullYear() - i;
+                  return `${year}-${year + 1}`;
+                }).map((fy) => (
+                  <option key={fy} value={fy}>{fy}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -211,7 +219,12 @@ const AdminDashboard = () => {
               
               {locationChartType === 'yearly' && (
                 <select value={selectedFiscalYear} onChange={(e) => setSelectedFiscalYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                  <option value={selectedFiscalYear}>{selectedFiscalYear}</option>
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const year = new Date().getFullYear() - i;
+                    return `${year}-${year + 1}`;
+                  }).map((fy) => (
+                    <option key={fy} value={fy}>{fy}</option>
+                  ))}
                 </select>
               )}
             </div>
@@ -406,6 +419,7 @@ const AdminDashboard = () => {
                         <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Location</th>
                         <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Expense</th>
                         <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Revenue</th>
+                        <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Office Events</th>
                         <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Profit/Loss</th>
                       </tr>
                     </thead>
@@ -415,6 +429,7 @@ const AdminDashboard = () => {
                           <td style={{ padding: '12px', textAlign: 'center'}}>{entry.location_name}</td>
                           <td style={{ padding: '12px', textAlign: 'center' }}>{formatNumber(entry.expense)}</td>
                           <td style={{ padding: '12px', textAlign: 'center', color: '#28a745', fontWeight: '600' }}>{formatNumber(entry.revenue)}</td>
+                          <td style={{ padding: '12px', textAlign: 'center', fontSize: '13px' }}>{entry.revenue_source || '-'}</td>
                           <td style={{ 
                             padding: '12px', 
                             textAlign: 'center',

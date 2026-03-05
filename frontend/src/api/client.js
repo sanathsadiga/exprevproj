@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = `https://revenue.projectdesigners.cloud/api`;
+const baseURL = `http://localhost:5001/api`;
 
 const api = axios.create({
   baseURL: baseURL,
@@ -40,7 +40,7 @@ export const dataAPI = {
   getYearlyData: (params) => api.get('/data/yearly', { params }),
   getAllMonthlyData: (params) => api.get('/data/all-monthly', { params }),
   getAllYearlyData: (params) => api.get('/data/all-yearly', { params }),
-  getDashboardSummary: () => api.get('/data/summary'),
+  getDashboardSummary: (params) => api.get('/data/summary', { params }),
 };
 
 export default api;

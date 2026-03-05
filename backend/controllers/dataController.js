@@ -3,12 +3,26 @@ import { generateFiscalYear } from '../utils/helpers.js';
 
 export const addExpenseRevenue = async (req, res) => {
   try {
-    const { location_id, month, year, expense, revenue } = req.body;
+    const { location_id, month, year, expense, revenue, revenue_source } = req.body;
     const userId = req.user.id;
 
     if (!location_id || !month || !year || expense === undefined || revenue === undefined) {
       return res.status(400).json({ message: 'All fields are required' });
     }
+
+    // month is fiscal month (1=April, 2=May, 3=June...)
+    // year is the starting year of the fiscal year (e.g., 2025 means fiscal 2025-2026)
+    // Convert fiscal month to calendar month/year
+    let calendarMonth = month + 3; // fiscal month 1 (April) -> calendar 4, etc.
+    let calendarYear = year;
+    
+    if (calendarMonth > 12) {
+      calendarMonth -= 12;
+      calendarYear += 1;
+    }
+
+    // The fiscal year is simply year-{year+1}
+    const fiscalYearFromDate = `${year}-${year + 1}`;
 
     const connection = await pool.getConnection();
 
@@ -19,13 +33,13 @@ export const addExpenseRevenue = async (req, res) => {
 
     if (existingRecord.length > 0) {
       await connection.query(
-        'UPDATE expense_revenue SET expense = ?, revenue = ?, updated_at = NOW() WHERE user_id = ? AND location_id = ? AND month = ? AND year = ?',
-        [expense, revenue, userId, location_id, month, year]
+        'UPDATE expense_revenue SET expense = ?, revenue = ?, revenue_source = ?, fiscal_year = ?, updated_at = NOW() WHERE user_id = ? AND location_id = ? AND month = ? AND year = ?',
+        [expense, revenue, revenue_source || null, fiscalYearFromDate, userId, location_id, month, year]
       );
     } else {
       await connection.query(
-        'INSERT INTO expense_revenue (user_id, location_id, month, year, expense, revenue, fiscal_year, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
-        [userId, location_id, month, year, expense, revenue, generateFiscalYear(new Date(year, month - 1))]
+        'INSERT INTO expense_revenue (user_id, location_id, month, year, expense, revenue, revenue_source, fiscal_year, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+        [userId, location_id, month, year, expense, revenue, revenue_source || null, fiscalYearFromDate]
       );
     }
 
@@ -109,7 +123,7 @@ export const getYearlyData = async (req, res) => {
 
 export const getAllMonthlyData = async (req, res) => {
   try {
-    const { month, year, location_id } = req.query;
+    const { fiscal_year, location_id } = req.query;
 
     let query = `
       SELECT 
@@ -131,21 +145,15 @@ export const getAllMonthlyData = async (req, res) => {
     `;
     const params = [];
 
+    if (fiscal_year) {
+      query += ' WHERE er.fiscal_year = ?';
+      params.push(fiscal_year);
+    }
+
     if (location_id) {
-      query += ' WHERE er.location_id = ?';
+      query += params.length > 0 ? ' AND' : ' WHERE';
+      query += ' er.location_id = ?';
       params.push(location_id);
-    }
-
-    if (month) {
-      query += params.length > 0 ? ' AND' : ' WHERE';
-      query += ' er.month = ?';
-      params.push(month);
-    }
-
-    if (year) {
-      query += params.length > 0 ? ' AND' : ' WHERE';
-      query += ' er.year = ?';
-      params.push(year);
     }
 
     query += ' ORDER BY er.year DESC, er.month DESC';
@@ -207,6 +215,7 @@ export const getDashboardSummary = async (req, res) => {
   try {
     const userId = req.user.id;
     const isAdmin = req.user.role === 'admin';
+    const { fiscal_year } = req.query;
 
     const connection = await pool.getConnection();
 
@@ -219,9 +228,18 @@ export const getDashboardSummary = async (req, res) => {
     `;
     const overallParams = [];
 
-    if (!isAdmin) {
-      overallQuery += ' WHERE user_id = ?';
-      overallParams.push(userId);
+    if (fiscal_year) {
+      overallQuery += ' WHERE fiscal_year = ?';
+      overallParams.push(fiscal_year);
+      if (!isAdmin) {
+        overallQuery += ' AND user_id = ?';
+        overallParams.push(userId);
+      }
+    } else {
+      if (!isAdmin) {
+        overallQuery += ' WHERE user_id = ?';
+        overallParams.push(userId);
+      }
     }
 
     const [overall] = await connection.query(overallQuery, overallParams);
@@ -232,7 +250,7 @@ export const getDashboardSummary = async (req, res) => {
 
     const fiscalYearParams = !isAdmin ? [userId] : [];
     const [latestFiscalYear] = await connection.query(fiscalYearQuery, fiscalYearParams);
-    const currentFiscalYear = latestFiscalYear[0]?.fiscal_year || generateFiscalYear();
+    const currentFiscalYear = fiscal_year || latestFiscalYear[0]?.fiscal_year || generateFiscalYear();
 
     let currentYearQuery = `
       SELECT 
@@ -259,11 +277,12 @@ export const getDashboardSummary = async (req, res) => {
         SUM(er.revenue) as total_revenue
       FROM expense_revenue er
       JOIN locations l ON er.location_id = l.id
+      WHERE er.fiscal_year = ?
     `;
-    const locationParams = [];
+    const locationParams = [currentFiscalYear];
 
     if (!isAdmin) {
-      locationQuery += ' WHERE er.user_id = ?';
+      locationQuery += ' AND er.user_id = ?';
       locationParams.push(userId);
     }
 
@@ -319,7 +338,7 @@ export const deleteExpenseRevenue = async (req, res) => {
 export const updateExpenseRevenue = async (req, res) => {
   try {
     const { id } = req.params;
-    const { expense, revenue } = req.body;
+    const { expense, revenue, revenue_source } = req.body;
     const userId = req.user.id;
 
     if (!id || expense === undefined || revenue === undefined) {
@@ -339,8 +358,8 @@ export const updateExpenseRevenue = async (req, res) => {
     }
 
     await connection.query(
-      'UPDATE expense_revenue SET expense = ?, revenue = ?, updated_at = NOW() WHERE id = ?',
-      [expense, revenue, id]
+      'UPDATE expense_revenue SET expense = ?, revenue = ?, revenue_source = ?, updated_at = NOW() WHERE id = ?',
+      [expense, revenue, revenue_source || null, id]
     );
 
     connection.release();
@@ -366,7 +385,10 @@ export const bulkImportCSV = async (req, res) => {
     }
 
     const connection = await pool.getConnection();
-    const fiscalYear = generateFiscalYear(new Date(year, month - 1));
+    
+    // year is the starting year of the fiscal year
+    // Simply format as fiscal year string
+    const fiscalYear = `${year}-${year + 1}`;
 
     let insertedCount = 0;
     let skippedCount = 0;
