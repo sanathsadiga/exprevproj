@@ -22,17 +22,21 @@ const CALENDAR_MONTHS = [
 
 // Function to convert calendar month/year to fiscal month/year
 const getFormData = (calendarMonth, calendarYear) => {
+  // Ensure values are numbers
+  const month = parseInt(calendarMonth);
+  const year = parseInt(calendarYear);
+  
   let fiscalMonth;
   let fiscalYear;
 
-  if (calendarMonth >= 4) {
+  if (month >= 4) {
     // April-December: fiscal year starts in current calendar year
-    fiscalMonth = calendarMonth - 3; // April (4) -> 1, June (6) -> 3, Dec (12) -> 9
-    fiscalYear = calendarYear;
+    fiscalMonth = month - 3; // April (4) -> 1, June (6) -> 3, Dec (12) -> 9
+    fiscalYear = year;
   } else {
     // January-March: fiscal year starts in previous calendar year
-    fiscalMonth = calendarMonth + 9; // Jan (1) -> 10, Feb (2) -> 11, Mar (3) -> 12
-    fiscalYear = calendarYear - 1;
+    fiscalMonth = month + 9; // Jan (1) -> 10, Feb (2) -> 11, Mar (3) -> 12
+    fiscalYear = year - 1;
   }
 
   return { fiscalMonth, fiscalYear };
@@ -80,13 +84,20 @@ const DataEntry = () => {
       // Convert calendar to fiscal for API call
       const { fiscalMonth, fiscalYear } = getFormData(filterCalendarMonth, filterCalendarYear);
       
+      console.log('Fetching entries with fiscal month:', fiscalMonth, 'fiscal year:', fiscalYear);
+      
       const response = await dataAPI.getMonthlyData({
         month: fiscalMonth,
         year: fiscalYear,
       });
+      
+      console.log('Response:', response);
+      console.log('Entries received:', response.data.data);
+      
       setEntries(response.data.data || []);
     } catch (error) {
       console.error('Error fetching entries:', error);
+      setError('Error loading entries: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -94,7 +105,7 @@ const DataEntry = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'expense' || name === 'revenue' ? parseFloat(value) || '' : value,
+      [name]: name === 'expense' || name === 'revenue' ? (value === '' ? '' : parseFloat(value)) : value,
     }));
   };
 
@@ -108,11 +119,20 @@ const DataEntry = () => {
       return;
     }
 
+    if (formData.expense < 0 || formData.revenue < 0) {
+      setError('Expense and revenue cannot be negative');
+      return;
+    }
+
     setLoading(true);
 
     try {
       // Convert calendar month/year to fiscal month/year
       const { fiscalMonth, fiscalYear } = getFormData(formData.calendar_month, formData.calendar_year);
+      
+      console.log('Form data:', formData);
+      console.log('Calendar month:', formData.calendar_month, 'Calendar year:', formData.calendar_year);
+      console.log('Converted to - Fiscal month:', fiscalMonth, 'Fiscal year:', fiscalYear);
       
       const submitData = {
         location_id: formData.location_id,
@@ -124,6 +144,8 @@ const DataEntry = () => {
           ? formData.revenue_source.split(',').map(s => s.trim()).filter(s => s).join(', ')
           : null
       };
+
+      console.log('Submit data:', submitData);
 
       if (editingId) {
         await dataAPI.updateExpenseRevenue(editingId, {
@@ -492,6 +514,12 @@ const DataEntry = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {showTable && entries.length === 0 && (
+          <div className="card" style={{ marginTop: '20px', padding: '20px', textAlign: 'center', color: '#666' }}>
+            <p>No entries found for {CALENDAR_MONTHS.find(m => m.value === filterCalendarMonth)?.label} {filterCalendarYear}</p>
           </div>
         )}
       </div>

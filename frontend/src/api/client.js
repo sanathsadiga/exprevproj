@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = `https://revenue.projectdesigners.cloud/api`;
+const baseURL = import.meta.env.VITE_API_URL || `http://localhost:5001`;
 
 const api = axios.create({
   baseURL: baseURL,
@@ -21,26 +21,26 @@ api.interceptors.request.use(
 );
 
 export const authAPI = {
-  register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', data),
+  register: (data) => api.post('/api/auth/register', data),
+  login: (data) => api.post('/api/auth/login', data),
 };
 
 export const locationAPI = {
-  getLocations: () => api.get('/locations'),
-  createLocation: (data) => api.post('/locations/create', data),
-  deleteLocation: (id) => api.delete(`/locations/${id}`),
+  getLocations: () => api.get('/api/locations'),
+  createLocation: (data) => api.post('/api/locations/create', data),
+  deleteLocation: (id) => api.delete(`/api/locations/${id}`),
 };
 
 export const dataAPI = {
-  addExpenseRevenue: (data) => api.post('/data/add', data),
-  updateExpenseRevenue: (id, data) => api.put(`/data/${id}`, data),
-  deleteExpenseRevenue: (id) => api.delete(`/data/${id}`),
-  bulkImportCSV: (data) => api.post('/data/bulk-import', data),
-  getMonthlyData: (params) => api.get('/data/monthly', { params }),
-  getYearlyData: (params) => api.get('/data/yearly', { params }),
-  getAllMonthlyData: (params) => api.get('/data/all-monthly', { params }),
-  getAllYearlyData: (params) => api.get('/data/all-yearly', { params }),
-  getDashboardSummary: (params) => api.get('/data/summary', { params }),
+  addExpenseRevenue: (data) => api.post('/api/data/add', data),
+  updateExpenseRevenue: (id, data) => api.put(`/api/data/${id}`, data),
+  deleteExpenseRevenue: (id) => api.delete(`/api/data/${id}`),
+  bulkImportCSV: (data) => api.post('/api/data/bulk-import', data),
+  getMonthlyData: (params) => api.get('/api/data/monthly', { params }),
+  getYearlyData: (params) => api.get('/api/data/yearly', { params }),
+  getAllMonthlyData: (params) => api.get('/api/data/all-monthly', { params }),
+  getAllYearlyData: (params) => api.get('/api/data/all-yearly', { params }),
+  getDashboardSummary: (params) => api.get('/api/data/summary', { params }),
 };
 
 export default api;

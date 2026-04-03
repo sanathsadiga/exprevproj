@@ -1,4 +1,5 @@
 import https from 'https';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,14 +10,25 @@ const PORT = 8000;
 const DIST_PATH = path.join(__dirname, 'dist');
 const INDEX_PATH = path.join(DIST_PATH, 'index.html');
 
-const options = {
-key: fs.readFileSync('/etc/letsencrypt/live/revenue.projectdesigners.cloud/privkey.pem'),
-  cert: fs.readFileSync('/etc/letsencrypt/live/revenue.projectdesigners.cloud/fullchain.pem'),
-  minVersion: 'TLSv1.2',
-  ciphers: 'DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK'
-};
+// Check if SSL certificates exist for production
+const certPath = '/etc/letsencrypt/live/revenue.projectdesigners.cloud/fullchain.pem';
+const keyPath = '/etc/letsencrypt/live/revenue.projectdesigners.cloud/privkey.pem';
+const useSSL = fs.existsSync(certPath) && fs.existsSync(keyPath);
 
-const server = https.createServer(options, (req, res) => {
+let server;
+if (useSSL) {
+  const options = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+    minVersion: 'TLSv1.2',
+    ciphers: 'DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK'
+  };
+  server = https.createServer(options, requestHandler);
+} else {
+  server = http.createServer(requestHandler);
+}
+
+function requestHandler(req, res) {
   let filePath = path.join(DIST_PATH, req.url);
   
   if (req.url === '/' || req.url.startsWith('/?')) {
@@ -48,8 +60,9 @@ const server = https.createServer(options, (req, res) => {
       res.end(content);
     }
   });
-});
+}
 
 server.listen(PORT, () => {
-  console.log(`Secure Server running on port ${PORT}`);
+  const protocol = useSSL ? 'https' : 'http';
+  console.log(`Server running on ${protocol}://localhost:${PORT}`);
 });
